@@ -1,0 +1,5 @@
+# Borrowed shamelessly from Elasticsearch
+
+@defaultMessage Convert to URI
+java.net.URL#getPath()
+java.net.URL#getFile()
