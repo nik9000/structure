@@ -8,7 +8,7 @@ public class IntMapTest extends IntMapExample.ParameterizedTest {
     @Test
     public void roundTrip() {
         IntMap.Sync sync = new IntMap.Sync();
-        IntMap.walk(sync, example.map());
-        assertEquals(example.map(), sync.map());
+        IntMap.sync(sync, example.testData());
+        assertEquals(example.testData(), sync.root());
     }
 }

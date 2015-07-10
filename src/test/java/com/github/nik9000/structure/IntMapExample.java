@@ -3,7 +3,6 @@ package com.github.nik9000.structure;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -17,6 +16,8 @@ public class IntMapExample {
     public static List<IntMapExample> EXAMPLES;
     static {
         ImmutableList.Builder<IntMapExample> b = ImmutableList.builder();
+        b.add(e("just value", "cat"));
+        b.add(e("just list", ImmutableList.of("cat", "dog")));
         b.add(e("empty", ImmutableMap.of()));
         b.add(e("single entry", ImmutableMap.of(1, "cat")));
         b.add(e("two entries", ImmutableMap.of(1, "cat", 2, "dog")));
@@ -35,25 +36,24 @@ public class IntMapExample {
     /**
      * Just a convenient builder.
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static IntMapExample e(String description, ImmutableMap map) {
+    private static IntMapExample e(String description, Object map) {
         return new IntMapExample(description, map);
     }
 
     private final String description;
-    private final ImmutableMap<Integer, Object> map;
+    private final Object testData;
 
-    public IntMapExample(String description, ImmutableMap<Integer, Object> map) {
+    public IntMapExample(String description, Object testData) {
         this.description = description;
-        this.map = map;
+        this.testData = testData;
     }
 
     public String description() {
         return description;
     }
 
-    public Map<Integer, Object> map() {
-        return map;
+    public Object testData() {
+        return testData;
     }
 
     @RunWith(Parameterized.class)

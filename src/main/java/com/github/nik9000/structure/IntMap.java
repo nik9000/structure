@@ -5,105 +5,182 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.github.nik9000.structure.StructuredDataSync.FieldValueSync;
-import com.github.nik9000.structure.StructuredDataSync.ListValuesSync;
-import com.github.nik9000.structure.StructuredDataSync.ValueSync;
-
+/**
+ * Simple implementation of the StructuredDataSync for Map<Integer, Object>.
+ */
 public final class IntMap {
-    public static void walk(StructuredDataSync sync, Map<Integer, ? extends Object> map) {
+    public static void sync(StructuredDataSync sync, Map<Integer, ? extends Object> map) {
+        sync.startObject();
         for (Map.Entry<Integer, ? extends Object> e : map.entrySet()) {
-            sync(sync.field(e.getKey()), e.getValue());
+            sync.field(e.getKey());
+            sync(sync, e.getValue());
         }
-        sync.endObject();
+        sync.end();
     }
 
-    public static void walk(ListValuesSync sync, List<? extends Object> list) {
+    public static void sync(StructuredDataSync sync, List<? extends Object> list) {
+        sync.startList();
         for (Object value : list) {
             sync(sync, value);
         }
-        sync.endList();
+        sync.end();
     }
 
     @SuppressWarnings("unchecked")
-    public static void sync(ValueSync sync, Object value) {
+    public static void sync(StructuredDataSync sync, Object value) {
         if (value instanceof List) {
-            walk(sync.startList(), (List<Object>) value);
+            sync(sync, (List<Object>) value);
             return;
         }
         if (value instanceof Map) {
-            walk(sync.startObject(), (Map<Integer, Object>) value);
+            sync(sync, (Map<Integer, Object>) value);
             return;
         }
         sync.value(value);
     }
 
     public static class Sync implements StructuredDataSync {
-        private final Map<Integer, Object> map = new HashMap<Integer, Object>();
+        private final Target rootTarget = new RootTarget();
+        private Target target = rootTarget;
 
-        public Map<Integer, Object> map() {
-            return map;
-        }
-
-        @Override
-        public FieldValueSync field(int id) {
-            return new IntMapFieldValueSync(map, id);
-        }
-
-        @Override
-        public void endObject() {
-        }
-    }
-
-    private static class IntMapFieldValueSync extends AbstractIntMapValueSync implements
-            FieldValueSync {
-        private final Map<Integer, Object> map;
-        private final int field;
-
-        public IntMapFieldValueSync(Map<Integer, Object> map, int field) {
-            this.map = map;
-            this.field = field;
+        public Object root() {
+            return rootTarget.wraps();
         }
 
         @Override
         public void value(Object o) {
-            map.put(field, o);
-        }
-    }
-
-    private static class IntMapListValuesSync extends AbstractIntMapValueSync implements
-            ListValuesSync {
-        private final List<Object> list = new ArrayList<>();
-
-        public List<Object> list() {
-            return list;
+            if (o instanceof Map || o instanceof List) {
+                throw new IllegalArgumentException(
+                        "Value must not be a Map or List. That wouldn't be fair.");
+            }
+            target.value(o);
         }
 
         @Override
-        public void value(Object o) {
-            list.add(o);
+        public void startObject() {
+            push(new ObjectTarget(target));
         }
 
         @Override
-        public void endList() {
-        }
-    }
-
-    private static abstract class AbstractIntMapValueSync implements ValueSync {
-        @Override
-        public abstract void value(Object o);
-
-        @Override
-        public ListValuesSync startList() {
-            IntMapListValuesSync sync = new IntMapListValuesSync();
-            value(sync.list());
-            return sync;
+        public void startList() {
+            push(new ListTarget(target));
         }
 
         @Override
-        public StructuredDataSync startObject() {
-            Sync sync = new Sync();
-            value(sync.map());
-            return sync;
+        public void field(int id) {
+            target.field(id);
+        }
+
+        @Override
+        public void end() {
+            if (target.previous == null) {
+                throw new IllegalStateException("End called when there is nothing to end");
+            }
+            target = target.previous;
+        }
+
+        private void push(Target nextTarget) {
+            target.value(nextTarget.wraps());
+            target = nextTarget;
+        }
+
+        private abstract class Target {
+            public final Target previous;
+
+            public Target(Target previous) {
+                this.previous = previous;
+            }
+
+            public abstract Object wraps();
+
+            public abstract void field(int id);
+
+            public abstract void value(Object v);
+        }
+
+        private class RootTarget extends Target {
+            private Object wraps;
+
+            public RootTarget() {
+                super(null);
+            }
+
+            @Override
+            public Object wraps() {
+                return wraps;
+            }
+
+            @Override
+            public void field(int id) {
+                throw new IllegalStateException("field called on the root - call startObject first");
+            }
+
+            @Override
+            public void value(Object v) {
+                if (wraps != null) {
+                    throw new IllegalStateException("Attempted to set the value of the root twice");
+                }
+                wraps = v;
+            }
+        }
+
+        private class ListTarget extends Target {
+            private final List<Object> target = new ArrayList<>();
+
+            public ListTarget(Target previous) {
+                super(previous);
+            }
+
+            @Override
+            public Object wraps() {
+                return target;
+            }
+
+            @Override
+            public void field(int id) {
+                throw new IllegalStateException("field called on a list - must be in an object");
+            }
+
+            @Override
+            public void value(Object v) {
+                target.add(v);
+            }
+        }
+
+        private class ObjectTarget extends Target {
+            private final Map<Integer, Object> target = new HashMap<>();
+            private int field = -1;
+
+            public ObjectTarget(Target previous) {
+                super(previous);
+            }
+
+            @Override
+            public Object wraps() {
+                return target;
+            }
+
+            @Override
+            public void field(int id) {
+                if (field >= 0) {
+                    throw new IllegalStateException(
+                            "field called without first setting the value of the last field");
+                }
+                if (id < 0) {
+                    throw new IllegalArgumentException("fields must be greater than 0 but got:  "
+                            + id);
+                }
+                field = id;
+            }
+
+            @Override
+            public void value(Object v) {
+                if (field < 0) {
+                    throw new IllegalStateException("value called without first calling field");
+                }
+                target.put(field, v);
+                field = -1;
+            }
         }
     }
 }
