@@ -40,14 +40,15 @@ public class Structure {
         private final Bytes.Source source;
         private final StructuredDataSync sync;
         private int read;
-        private String path = "";
+        private PathStack path;
 
         public Rebuilder(RowReader reader, FieldResolver resolver, Source source,
-                StructuredDataSync sync) {
+                StructuredDataSync sync, int maxDepth) {
             this.reader = reader;
             this.resolver = resolver;
             this.source = source;
             this.sync = sync;
+            path = new PathStack(".", maxDepth);
         }
 
         public void sync() {
@@ -55,80 +56,86 @@ public class Structure {
             if (read == START_OBJECT) {
                 read = readVInt();
             }
+            syncObject();
+        }
+
+        private void syncObject() {
             sync.startObject();
-            while (true) {
-                if (syncFieldInObject()) {
-                    if (!source.hasNext()) {
-                        break;
+            while (source.hasNext()) {
+                switch (read) {
+                case START_OBJECT:
+                    throw new IllegalStateException(
+                            "Its invalid to start an object outside of a field.");
+                case START_LIST:
+                    throw new IllegalStateException(
+                            "Its invalid to start a list outside of a field.");
+                case VALUE_LIST:
+                    throw new IllegalStateException(
+                            "Its invalid to start a list outside of a field.");
+                case END:
+                    sync.endObject();
+                    if (source.hasNext()) {
+                        read = readVInt();
                     }
+                    return;
+                default:
+                    String field = resolver.resolve(read - FIRST_FIELD);
+                    path.push(field);
+                    sync.field(field);
                     read = readVInt();
+                    syncValue(false);
+                    path.pop();
                 }
             }
         }
 
-        private boolean syncFieldInObject() {
+        private void syncValue(boolean listMode) {
             switch (read) {
             case START_OBJECT:
-                throw new IllegalStateException(
-                        "Its invalid to start an object outside of a field.");
-            case START_LIST:
-                throw new UnsupportedOperationException("Complex lists not yet supported");
-            case VALUE_LIST:
-                throw new IllegalStateException("Its invalid to start a list outside of a field.");
-            case END:
-                sync.endObject();
-                int index = path.lastIndexOf('.', path.length() - 2);
-                if (index < 0) {
-                    path = "";
-                } else {
-                    path = path.substring(0, index);
-                }
-                return true;
-            default:
-                String field = resolver.resolve(read - FIRST_FIELD);
-                sync.field(field);
                 read = readVInt();
-                return syncFieldValue(field);
-            }
-        }
-
-        private boolean syncFieldValue(String field) {
-            switch (read) {
-            case START_OBJECT:
-                path += field + '.';
-                sync.startObject();
-                return true;
+                syncObject();
+                return;
             case START_LIST:
-                throw new UnsupportedOperationException("Complex lists not yet supported");
-            case VALUE_LIST:
-                int size = readVInt();
+                read = readVInt();
                 sync.startList();
-                String column = column(field);
-                for (int i = 0; i < size; i++) {
+                while (read != END) {
+                    syncValue(true);
+                }
+                sync.endList();
+                return;
+            case VALUE_LIST:
+                if (!source.hasNext()) {
+                    throw new Bytes.IOException(
+                            "Invalid value list - its missing its length. Its likely the data was cut off.");
+                }
+                read = readVInt();
+                sync.startList();
+                String column = path.toPath();
+                for (int i = 0; i < read; i++) {
                     sync.value(reader.next(column));
                 }
                 sync.endList();
-                return true;
+                read = readVInt();
+                break;
             case END:
-                sync.value(reader.next(column(field)));
-                return false;
+                if (listMode) {
+                    return;
+                }
             default:
-                sync.value(reader.next(column(field)));
-                return false;
+                sync.value(reader.next(path.toPath()));
+                if (listMode) {
+                    read = readVInt();
+                }
             }
-        }
-
-        /**
-         * Get the column name for the field at the current path.
-         */
-        private String column(String field) {
-            return path + field;
         }
 
         /**
          * Read a VInt.
          */
         private int readVInt() {
+            if (!source.hasNext()) {
+                return END;
+            }
             // Implementation shamelessly stolen from Lucene.
             byte b = source.next();
             if (b >= 0) {
@@ -168,60 +175,97 @@ public class Structure {
     }
 
     public static class Sync implements StructuredDataSync {
+        private static final int IN_OBJECT = -1;
+        private static final int IN_COMPLEX_LIST = -2;
         private final Bytes.Sync b;
         private final FieldResolver fieldResolver;
         /**
-         * If >= 0 it means we're in a simple list. If == -1 it means we're in
-         * an object. If == -2 it means we're in a complex list.
+         * Date for what is being worked on.
+         * <ul>
+         * <li>If the top is >= 0 that means we're working on a value list.
+         * <li>If the top == IN_OBJECT that means we're working on an object.
+         * <li>If the top == IN_COMPLEX_LIST that means we're working on a
+         * complex list _and_ the value right under the top will be the field
+         * that that list is for.
+         * </ul>
          */
-        private int listCount = -1;
+        private final int[] objectStates;
+        private int currentObjectState = 0;
+        private int lastField;
 
-        public Sync(Bytes.Sync b, FieldResolver fieldResolver) {
+        public Sync(Bytes.Sync b, FieldResolver fieldResolver, int maxDepth) {
             // TODO its acceptable to strip the leading START_OBJECT
             // TODO its acceptable to strip all trailing ENDs
             this.b = b;
             this.fieldResolver = fieldResolver;
+            objectStates = new int[maxDepth * 2];
+            objectStates[currentObjectState] = -1;
         }
 
         @Override
         public void value(Object o) {
-            if (listCount >= 0) {
-                listCount++;
+            switch (objectStates[currentObjectState]) {
+            case IN_OBJECT:
+                // In an object, nothing to do
+                return;
+            case IN_COMPLEX_LIST:
+                writeField(objectStates[currentObjectState - 1]);
+                return;
+            default:
+                assert objectStates[currentObjectState] > 0 : "Unexpected state";
+                objectStates[currentObjectState] += 1;
             }
         }
 
         @Override
         public void startList() {
-            if (listCount >= 0) {
-                throw new UnsupportedOperationException("No complex lists yet");
-            }
-            b.put(VALUE_LIST);
-            listCount = 0;
+            prepateForComplexValue();
+            // Default all lists to value lists unless we see otherwise
+            pushState(0);
         }
 
         @Override
         public void endList() {
-            if (listCount >= 0) {
-                writeVInt(listCount);
+            switch (objectStates[currentObjectState]) {
+            case IN_OBJECT:
+                throw new IllegalStateException("Expected to be in a list but was in an object");
+            case IN_COMPLEX_LIST:
+                b.put(END);
+                currentObjectState -= 2;
+                return;
+            default:
+                assert objectStates[currentObjectState] >= 0 : "Unexpected state";
+                b.put(VALUE_LIST);
+                writeVInt(objectStates[currentObjectState]);
+                currentObjectState -= 1;
+                return;
             }
         }
 
         @Override
         public void startObject() {
-            if (listCount >= 0) {
-                throw new UnsupportedOperationException("No complex lists yet");
-            }
+            prepateForComplexValue();
+            pushState(-1);
             b.put(START_OBJECT);
         }
 
         @Override
         public void endObject() {
+            if (objectStates[currentObjectState] != IN_OBJECT) {
+                throw new IllegalStateException("Expected to be in an object but was in a list");
+            }
+            currentObjectState -= 1;
             b.put(END);
+            return;
         }
 
         @Override
         public void field(String name) {
-            writeVInt(FIRST_FIELD + fieldResolver.resolve(name));
+            if (objectStates[currentObjectState] != IN_OBJECT) {
+                throw new IllegalStateException("Expected to be in an object but was in a list");
+            }
+            lastField = fieldResolver.resolve(name);
+            writeField(lastField);
         }
 
         private void writeVInt(int i) {
@@ -231,6 +275,44 @@ public class Structure {
                 i >>>= 7;
             }
             b.put((byte) i);
+        }
+
+        private void writeField(int field) {
+            writeVInt(FIRST_FIELD + field);
+        }
+
+        /**
+         * If we're working on a value list convert it to a complex list so it
+         * can hold a complex value.
+         */
+        private void prepateForComplexValue() {
+            switch (objectStates[currentObjectState]) {
+            case IN_OBJECT:
+            case IN_COMPLEX_LIST:
+                break;
+            default:
+                assert objectStates[currentObjectState] > 0 : "Unexpected state";
+                convertValueListIntoComplexList();
+            }
+        }
+
+        private void convertValueListIntoComplexList() {
+            b.put(START_LIST);
+            for (int i = 0; i < objectStates[currentObjectState]; i++) {
+                writeField(lastField);
+            }
+            objectStates[currentObjectState] = lastField;
+            pushState(-2);
+        }
+
+        private void pushState(int newState) {
+            currentObjectState += 1;
+            if (currentObjectState >= objectStates.length) {
+                throw new IllegalStateException(
+                        "Ran out of state storage space. Build with greater maxObjectDepth");
+            }
+            objectStates[currentObjectState] = newState;
+
         }
     }
 

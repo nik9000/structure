@@ -1,5 +1,6 @@
 package com.github.nik9000.structure.sync;
 
+import static com.github.nik9000.structure.StringMapExample.MAX_DEPTH;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeThat;
@@ -24,17 +25,37 @@ public class ColumnSyncTest extends StringMapExample.ParameterizedTest {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         Structure.FieldResolver fields = new Structure.SimpleFieldResolver();
         ListMultimapColumnRowWriter column = new ListMultimapColumnRowWriter();
-        StructuredDataSync sync = new BothStructuredDataSync(new Structure.Sync(
-                new Bytes.OutputStreamByteSync(bytes), fields), new Column.Sync(column));
+        StructuredDataSync sync = new Structure.Sync(new Bytes.OutputStreamByteSync(bytes), fields,
+                MAX_DEPTH);
+        sync = new BothStructuredDataSync(sync, new Column.Sync(column));
         StringMap.sync(sync, example.testData());
         System.err.printf("%30s:  %30s %-30s %s\n", example.description(),
-                Arrays.toString(bytes.toByteArray()),
-                fields, column);
+                Arrays.toString(bytes.toByteArray()), fields, column);
 
         StringMap.Sync map = new StringMap.Sync();
+        sync = map;
+        sync = new PrintingStructuredDataSync(sync);
+        Bytes.Source bytesSource = new Bytes.InputStreamByteSource(new ByteArrayInputStream(
+                bytes.toByteArray()));
         Structure.Rebuilder rebuilder = new Structure.Rebuilder(column.reader(), fields,
-                new Bytes.InputStreamByteSource(new ByteArrayInputStream(bytes.toByteArray())), map);
+                bytesSource, sync, MAX_DEPTH);
         rebuilder.sync();
         assertEquals(example.testData(), map.root());
+    }
+
+    private static class PrintingStructuredDataSync extends AbstractTracingStructuredDataSync {
+        public PrintingStructuredDataSync(StructuredDataSync delegate) {
+            super(delegate);
+        }
+
+        @Override
+        protected void trace(String method, Object arg) {
+            System.err.print(method);
+            System.err.print('(');
+            if (arg != null) {
+                System.err.print(arg);
+            }
+            System.err.println(')');
+        }
     }
 }

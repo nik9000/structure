@@ -13,6 +13,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 public class StringMapExample {
+    /**
+     * Maximum depth required to round trip all examples.
+     */
+    public static int MAX_DEPTH = 20;
+
     public static List<StringMapExample> EXAMPLES;
     static {
         ImmutableList.Builder<StringMapExample> b = ImmutableList.builder();
@@ -34,6 +39,10 @@ public class StringMapExample {
                 ImmutableList.of(ImmutableMap.of("good", "cat"), ImmutableMap.of("bad", "dog")))));
         b.add(e("list of lists", ImmutableMap.of("animal", //
                 ImmutableList.of(ImmutableList.of("cat", "dog"), ImmutableList.of("bird")))));
+        b.add(e("list of value and then list", ImmutableMap.of("animal", //
+                ImmutableList.of("bird", ImmutableList.of("cat", "dog")))));
+        b.add(e("list of list and then value", ImmutableMap.of("animal", //
+                ImmutableList.of(ImmutableList.of("cat", "dog"), "bird"))));
         EXAMPLES = b.build();
     }
 
