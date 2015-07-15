@@ -33,13 +33,6 @@ public class PathStack {
         }
     }
 
-    public String top() {
-        if (nextEntry <= 0) {
-            return null;
-        }
-        return entries[nextEntry - 1];
-    }
-
     public String toPath() {
         switch (nextEntry) {
         case 0:

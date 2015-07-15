@@ -27,7 +27,7 @@ public class ColumnSyncTest extends StringMapExample.ParameterizedTest {
         ListMultimapColumnRowWriter column = new ListMultimapColumnRowWriter();
         StructuredDataSync sync = new Structure.Sync(new Bytes.OutputStreamByteSync(bytes), fields,
                 MAX_DEPTH);
-        sync = new BothStructuredDataSync(sync, new Column.Sync(column));
+        sync = new BothStructuredDataSync(sync, new Column.Sync(column, MAX_DEPTH));
         StringMap.sync(sync, example.testData());
         System.err.printf("%30s:  %35s %-30s %s\n", example.description(),
                 Arrays.toString(bytes.toByteArray()), fields, column);

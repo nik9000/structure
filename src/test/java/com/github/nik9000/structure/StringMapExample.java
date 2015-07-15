@@ -30,9 +30,14 @@ public class StringMapExample {
         b.add(e("single entry list", ImmutableMap.of("animal", ImmutableList.of("cat"))));
         b.add(e("two entry list", ImmutableMap.of("animal", ImmutableList.of("cat", "dog"))));
         b.add(e("two level", ImmutableMap.of("animal", ImmutableMap.of("good", "cat"))));
-        b.add(e("two level with trailing", ImmutableMap.of( //
+        b.add(e("two level two item", ImmutableMap.of("animal", //
+                ImmutableMap.of("good", "cat", "bad", "dog"))));
+        b.add(e("two level with trailing field", ImmutableMap.of( //
                 "animal", ImmutableMap.of("good", "cat"), //
                 "action", "run")));
+        b.add(e("two level with trailing object", ImmutableMap.of( //
+                "animal", ImmutableMap.of("good", "cat"), //
+                "action", ImmutableMap.of("flies", "bird"))));
         b.add(e("two level list",
                 ImmutableMap.of("animal", ImmutableMap.of("good", ImmutableList.of("cat")))));
         b.add(e("list of objects", ImmutableMap.of("animal", //

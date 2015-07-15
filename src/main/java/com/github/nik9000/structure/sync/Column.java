@@ -1,5 +1,6 @@
 package com.github.nik9000.structure.sync;
 
+import com.github.nik9000.structure.PathStack;
 import com.github.nik9000.structure.StructuredDataSync;
 
 public class Column {
@@ -24,61 +25,73 @@ public class Column {
      * field are considered lists.
      */
     public static class Sync implements StructuredDataSync {
-        private final RowWriter writer;
-        private String path = "";
+        private static enum State {
+            OBJECT, LIST;
+        }
 
-        public Sync(RowWriter writer) {
+        private final RowWriter writer;
+        private final State[] states;
+        private int currentState = -1;
+        private PathStack path;
+
+        public Sync(RowWriter writer, int maxDepth) {
             this.writer = writer;
+            path = new PathStack(".", maxDepth);
+            states = new State[maxDepth];
         }
 
         @Override
         public void value(Object o) {
-            if ("".equals(path)) {
-                throw new IllegalStateException("Doesn't support bare values");
-            }
-            if (path.charAt(path.length() - 1) == '.') {
-                throw new IllegalStateException("Field name not set");
-            }
-            writer.write(path, o);
+            writer.write(path.toPath(), o);
+            popPathIfAppropriate();
         }
 
         @Override
         public void startList() {
+            pushState(State.LIST);
         }
 
         @Override
         public void endList() {
+            popState();
+            popPathIfAppropriate();
         }
 
         @Override
         public void startObject() {
-            if (!"".equals(path)) {
-                path += '.';
-            }
+            pushState(State.OBJECT);
         }
 
         @Override
         public void endObject() {
-            int index = path.lastIndexOf('.', path.length() - 2);
-            if (index < 0) {
-                path = "";
-                return;
-            }
-            path = path.substring(0, index);
+            popState();
+            popPathIfAppropriate();
         }
 
         @Override
         public void field(String name) {
-            if (path.endsWith(".")) {
-                path += name;
-                return;
+            path.push(name);
+        }
+
+        private void pushState(State state) {
+            currentState += 1;
+            if (currentState >= states.length) {
+                throw new IllegalStateException("Too much depth. Construct with greater maxDepth");
             }
-            int index = path.lastIndexOf('.');
-            if (index < 0) {
-                path = name;
-                return;
+            states[currentState] = state;
+        }
+
+        private void popState() {
+            if (currentState < -1) {
+                throw new IllegalStateException("No more states to pop");
             }
-            path = path.substring(0, index) + name;
+            currentState -= 1;
+        }
+
+        private void popPathIfAppropriate() {
+            if (currentState >= 0 && states[currentState] == State.OBJECT) {
+                path.pop();
+            }
         }
     }
 }
