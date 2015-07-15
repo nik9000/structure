@@ -29,12 +29,12 @@ public class ColumnSyncTest extends StringMapExample.ParameterizedTest {
                 MAX_DEPTH);
         sync = new BothStructuredDataSync(sync, new Column.Sync(column));
         StringMap.sync(sync, example.testData());
-        System.err.printf("%30s:  %30s %-30s %s\n", example.description(),
+        System.err.printf("%30s:  %35s %-30s %s\n", example.description(),
                 Arrays.toString(bytes.toByteArray()), fields, column);
 
         StringMap.Sync map = new StringMap.Sync();
         sync = map;
-        sync = new PrintingStructuredDataSync(sync);
+        // sync = new PrintingStructuredDataSync(sync);
         Bytes.Source bytesSource = new Bytes.InputStreamByteSource(new ByteArrayInputStream(
                 bytes.toByteArray()));
         Structure.Rebuilder rebuilder = new Structure.Rebuilder(column.reader(), fields,
@@ -43,7 +43,7 @@ public class ColumnSyncTest extends StringMapExample.ParameterizedTest {
         assertEquals(example.testData(), map.root());
     }
 
-    private static class PrintingStructuredDataSync extends AbstractTracingStructuredDataSync {
+    public static class PrintingStructuredDataSync extends AbstractTracingStructuredDataSync {
         public PrintingStructuredDataSync(StructuredDataSync delegate) {
             super(delegate);
         }

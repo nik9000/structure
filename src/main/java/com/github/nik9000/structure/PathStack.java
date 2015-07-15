@@ -1,13 +1,13 @@
 package com.github.nik9000.structure;
 
 public class PathStack {
+    /**
+     * Paths build here. Initial capacity of 64 because 16 and 32 just seemed a
+     * bit small.
+     */
+    private final StringBuilder pathBuilder = new StringBuilder(64);
     private final String[] entries;
     private final String separator;
-    /**
-     * Starting capacity used for the StringBuilder for the path. Defaults to
-     * something simple and ratchets upwards.
-     */
-    private int pathBuilderStartingCapacity = 40;
     private int nextEntry;
 
     public PathStack(String separator, int maxEntries) {
@@ -49,13 +49,12 @@ public class PathStack {
         default:
             // Intentionally fall out
         }
-        StringBuilder b = new StringBuilder(pathBuilderStartingCapacity);
-        b.append(entries[0]);
+        pathBuilder.setLength(0);
+        pathBuilder.append(entries[0]);
         for (int i = 1; i < nextEntry; i++) {
-            b.append(separator).append(entries[i]);
+            pathBuilder.append(separator).append(entries[i]);
         }
-        pathBuilderStartingCapacity = Math.max(pathBuilderStartingCapacity, b.capacity());
-        return b.toString();
+        return pathBuilder.toString();
     }
 
     @Override
