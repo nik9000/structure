@@ -4,4 +4,4 @@ target
 .settings
 .project
 dependency-reduced-pom.xml
-
+.execution-hints-*

@@ -212,7 +212,7 @@ public class Structure {
                 writeField(objectStates[currentObjectState - 1]);
                 return;
             default:
-                assert objectStates[currentObjectState] > 0 : "Unexpected state";
+                assert objectStates[currentObjectState] >= 0 : "Unexpected state";
                 objectStates[currentObjectState] += 1;
             }
         }
@@ -291,7 +291,7 @@ public class Structure {
             case IN_COMPLEX_LIST:
                 break;
             default:
-                assert objectStates[currentObjectState] > 0 : "Unexpected state";
+                assert objectStates[currentObjectState] >= 0 : "Unexpected state";
                 convertValueListIntoComplexList();
             }
         }
