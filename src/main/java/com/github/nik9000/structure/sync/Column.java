@@ -15,6 +15,9 @@ public class Column {
      * Wraps reading from a single row in a column store.
      */
     public interface RowReader {
+        /**
+         * Load the next value in this column.
+         */
         Object next(String column);
     }
 

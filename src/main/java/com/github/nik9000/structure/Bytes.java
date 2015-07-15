@@ -108,4 +108,28 @@ public class Bytes {
             }
         }
     }
+
+    public static class BytesRefBytesSource implements Bytes.Source {
+        private final byte[] bytes;
+        private final int end;
+        private int index;
+
+        public BytesRefBytesSource(byte[] bytes, int offset, int length) {
+            this.bytes = bytes;
+            index = offset;
+            end = offset + length;
+        }
+
+        @Override
+        public boolean hasNext() throws IOException {
+            return index < end;
+        }
+
+        @Override
+        public byte next() throws IOException {
+            byte b = bytes[index];
+            index += 1;
+            return b;
+        }
+    }
 }
