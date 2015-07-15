@@ -1,21 +1,23 @@
-package com.github.nik9000.structure;
+package com.github.nik9000.structure.sync;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.github.nik9000.structure.StructuredDataSync;
+
 /**
  * Simple implementation of the StructuredDataSync for Map<Integer, Object>.
  */
-public final class IntMap {
-    public static void sync(StructuredDataSync sync, Map<Integer, ? extends Object> map) {
+public final class StringMap {
+    public static void sync(StructuredDataSync sync, Map<String, ? extends Object> map) {
         sync.startObject();
-        for (Map.Entry<Integer, ? extends Object> e : map.entrySet()) {
+        for (Map.Entry<String, ? extends Object> e : map.entrySet()) {
             sync.field(e.getKey());
             sync(sync, e.getValue());
         }
-        sync.end();
+        sync.endObject();
     }
 
     public static void sync(StructuredDataSync sync, List<? extends Object> list) {
@@ -23,7 +25,7 @@ public final class IntMap {
         for (Object value : list) {
             sync(sync, value);
         }
-        sync.end();
+        sync.endList();
     }
 
     @SuppressWarnings("unchecked")
@@ -33,7 +35,7 @@ public final class IntMap {
             return;
         }
         if (value instanceof Map) {
-            sync(sync, (Map<Integer, Object>) value);
+            sync(sync, (Map<String, Object>) value);
             return;
         }
         sync.value(value);
@@ -67,16 +69,24 @@ public final class IntMap {
         }
 
         @Override
-        public void field(int id) {
-            target.field(id);
+        public void field(String name) {
+            target.field(name);
         }
 
         @Override
-        public void end() {
-            if (target.previous == null) {
-                throw new IllegalStateException("End called when there is nothing to end");
+        public void endList() {
+            end();
+        }
+
+        @Override
+        public void endObject() {
+            end();
+        }
+
+        private void end() {
+            if (target.previous != null) {
+                target = target.previous;
             }
-            target = target.previous;
         }
 
         private void push(Target nextTarget) {
@@ -93,7 +103,7 @@ public final class IntMap {
 
             public abstract Object wraps();
 
-            public abstract void field(int id);
+            public abstract void field(String name);
 
             public abstract void value(Object v);
         }
@@ -111,7 +121,7 @@ public final class IntMap {
             }
 
             @Override
-            public void field(int id) {
+            public void field(String name) {
                 throw new IllegalStateException("field called on the root - call startObject first");
             }
 
@@ -137,7 +147,7 @@ public final class IntMap {
             }
 
             @Override
-            public void field(int id) {
+            public void field(String name) {
                 throw new IllegalStateException("field called on a list - must be in an object");
             }
 
@@ -148,8 +158,8 @@ public final class IntMap {
         }
 
         private class ObjectTarget extends Target {
-            private final Map<Integer, Object> target = new HashMap<>();
-            private int field = -1;
+            private final Map<String, Object> target = new HashMap<>();
+            private String fieldName;
 
             public ObjectTarget(Target previous) {
                 super(previous);
@@ -161,25 +171,21 @@ public final class IntMap {
             }
 
             @Override
-            public void field(int id) {
-                if (field >= 0) {
+            public void field(String name) {
+                if (fieldName != null) {
                     throw new IllegalStateException(
                             "field called without first setting the value of the last field");
                 }
-                if (id < 0) {
-                    throw new IllegalArgumentException("fields must be greater than 0 but got:  "
-                            + id);
-                }
-                field = id;
+                fieldName = name;
             }
 
             @Override
             public void value(Object v) {
-                if (field < 0) {
+                if (fieldName == null) {
                     throw new IllegalStateException("value called without first calling field");
                 }
-                target.put(field, v);
-                field = -1;
+                target.put(fieldName, v);
+                fieldName = null;
             }
         }
     }

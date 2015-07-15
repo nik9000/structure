@@ -16,6 +16,11 @@ public interface StructuredDataSync {
     void startList();
 
     /**
+     * End the current list.
+     */
+    void endList();
+
+    /**
      * Start a new object at the current position. Fill out the object by
      * calling field and then value or any of the start methods and then calling
      * field again, etc.
@@ -23,13 +28,13 @@ public interface StructuredDataSync {
     void startObject();
 
     /**
+     * End the current object.
+     */
+    void endObject();
+
+    /**
      * Start a new field in the current object. After calling this you must call
      * value, startObject, or endObject.
      */
-    void field(int id);
-
-    /**
-     * End the current object or list.
-     */
-    void end();
+    void field(String name);
 }
