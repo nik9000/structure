@@ -51,7 +51,7 @@
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-core</artifactId>
 			<version>${lucene.version}</version>
-			<optional>true</optional>
+			<!-- Probably should be optional but for utils.... -->
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
@@ -274,8 +274,8 @@
 						<id>validate</id>
 						<phase>test</phase>
 						<configuration>
-							<configLocation>${project.parent.basedir}/src/build/checkstyle/checkstyle.xml</configLocation>
-							<propertyExpansion>checkstyle.suppressions=${project.parent.basedir}/src/build/checkstyle/suppressions.xml</propertyExpansion>
+							<configLocation>${project.basedir}/src/build/checkstyle/checkstyle.xml</configLocation>
+							<propertyExpansion>checkstyle.suppressions=${project.basedir}/src/build/checkstyle/suppressions.xml</propertyExpansion>
 							<includeTestSourceDirectory>true</includeTestSourceDirectory>
 							<encoding>UTF-8</encoding>
 							<consoleOutput>true</consoleOutput>

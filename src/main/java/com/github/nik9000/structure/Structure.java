@@ -43,12 +43,12 @@ public class Structure {
         private PathStack path;
 
         public Rebuilder(RowReader reader, FieldResolver resolver, Source source,
-                StructuredDataSync sync, int maxDepth) {
+                StructuredDataSync sync) {
             this.reader = reader;
             this.resolver = resolver;
             this.source = source;
             this.sync = sync;
-            path = new PathStack(".", maxDepth);
+            path = new PathStack(".");
         }
 
         public void sync() {

@@ -39,7 +39,7 @@ public class Column {
 
         public Sync(RowWriter writer, int maxDepth) {
             this.writer = writer;
-            path = new PathStack(".", maxDepth);
+            path = new PathStack(".");
             states = new State[maxDepth];
         }
 
@@ -79,7 +79,7 @@ public class Column {
         private void pushState(State state) {
             currentState += 1;
             if (currentState >= states.length) {
-                throw new IllegalStateException("Too much depth. Construct with greater maxDepth");
+                throw new IllegalStateException("Too much depth. Construct with greater maxDepth.");
             }
             states[currentState] = state;
         }

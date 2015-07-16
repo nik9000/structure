@@ -43,7 +43,7 @@ public class ColumnSyncTest extends StringMapExample.ParameterizedTest {
         Bytes.Source bytesSource = new Bytes.InputStreamByteSource(new ByteArrayInputStream(
                 bytes.toByteArray()));
         Structure.Rebuilder rebuilder = new Structure.Rebuilder(column.reader(), fields,
-                bytesSource, sync, MAX_DEPTH);
+                bytesSource, sync);
         rebuilder.sync();
         assertEquals(example.testData(), map.root());
     }

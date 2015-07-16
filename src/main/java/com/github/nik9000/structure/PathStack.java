@@ -1,18 +1,27 @@
 package com.github.nik9000.structure;
 
+import static org.apache.lucene.util.RamUsageEstimator.NUM_BYTES_OBJECT_REF;
+
+import org.apache.lucene.util.ArrayUtil;
+
 public class PathStack {
+    private static final int DEFAULT_INITIAL_DEPTH = 5;
     /**
-     * Paths build here. Initial capacity of 64 because 16 and 32 just seemed a
+     * Paths built here. Initial capacity of 64 because 16 and 32 just seemed a
      * bit small.
      */
     private final StringBuilder pathBuilder = new StringBuilder(64);
-    private final String[] entries;
     private final String separator;
+    private String[] entries;
     private int nextEntry;
 
-    public PathStack(String separator, int maxEntries) {
+    public PathStack(String separator) {
+        this(separator, DEFAULT_INITIAL_DEPTH);
+    }
+
+    public PathStack(String separator, int initialDepth) {
         this.separator = separator;
-        entries = new String[maxEntries];
+        entries = new String[ArrayUtil.oversize(initialDepth, NUM_BYTES_OBJECT_REF)];
     }
 
     /**
@@ -20,7 +29,9 @@ public class PathStack {
      */
     public void push(String entry) {
         if (nextEntry >= entries.length) {
-            throw new IllegalStateException("Too many entries. Construct with more maxEntries");
+            String[] backup = entries;
+            entries = new String[ArrayUtil.oversize(nextEntry, NUM_BYTES_OBJECT_REF)];
+            System.arraycopy(backup, 0, entries, 0, backup.length);
         }
         entries[nextEntry] = entry;
         nextEntry++;
@@ -52,14 +63,6 @@ public class PathStack {
 
     @Override
     public String toString() {
-        if (nextEntry == 0) {
-            return "";
-        }
-        StringBuilder b = new StringBuilder();
-        b.append('"').append(entries[0]).append('"');
-        for (int i = 1; i < nextEntry; i++) {
-            b.append(separator).append('"').append(entries[i]).append('"');
-        }
-        return b.toString();
+        return toPath();
     }
 }

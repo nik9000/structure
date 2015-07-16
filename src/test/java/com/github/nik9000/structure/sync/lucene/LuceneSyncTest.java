@@ -58,7 +58,7 @@ public class LuceneSyncTest extends StringMapExample.ParameterizedTest {
                 Bytes.Source bytesSource = new Bytes.BytesRefBytesSource(structure.bytes,
                         structure.offset, structure.length);
                 Structure.Rebuilder rebuilder = new Structure.Rebuilder(rowReader, fields,
-                        bytesSource, sync, MAX_DEPTH);
+                        bytesSource, sync);
                 rebuilder.sync();
                 assertEquals(example.testData(), map.root());
             }
