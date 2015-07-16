@@ -46,7 +46,10 @@ public class LuceneRowReader implements RowReader {
             return null;
         }
         IndexableField field = fieldItr.next();
-        // TODO this, too, is horrible
+        return getValue(field);
+    }
+
+    protected Object getValue(IndexableField field) {
         Object v = field.numericValue();
         if (v != null) {
             return v;
